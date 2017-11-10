@@ -16,102 +16,112 @@
 
 # XML exporter for generating test files, not intended for end users
 
+bl_info = {
+	"name": "Cycles XML exporter",
+	"description": "Exports the scene to the standalone Cycles renderer's XML format (you only need this if you are using Cycles standalone.",
+	"author": "Fábio Santos, kiki",
+	"version": (0, 1, 1),
+	"blender": (2, 78, 0),
+	"location": "File > Import-Export",
+	"warning": "", # used for warning icon and text in addons panel
+	"wiki_url": "", # "http://wiki.blender.org/index.php/TODO
+	"category": "Import-Export"
+}
+
+from imp import reload
+
 import bpy
 from bpy_extras.io_utils import ExportHelper
 from bpy.props import PointerProperty, StringProperty
 
 
 class CyclesXMLSettings(bpy.types.PropertyGroup):
-    @classmethod
-    def register(cls):
-        bpy.types.Scene.cycles_xml = PointerProperty(
-                                        type=cls,
-                                        name="Cycles XML export Settings",
-                                        description="Cycles XML export settings")
-        cls.filepath = StringProperty(
-                        name='Filepath',
-                        description='Filepath for the .xml file',
-                        maxlen=256,
-                        default='',
-                        subtype='FILE_PATH')
-                        
-    @classmethod
-    def unregister(cls):
-        del bpy.types.Scene.cycles_xml
+	@classmethod
+	def register(cls):
+		bpy.types.Scene.cycles_xml = PointerProperty(
+										type=cls,
+										name="Cycles XML export Settings",
+										description="Cycles XML export settings")
+		cls.filepath = StringProperty(
+						name='Filepath',
+						description='Filepath for the .xml file',
+						maxlen=256,
+						default='',
+						subtype='FILE_PATH')
+						
+	@classmethod
+	def unregister(cls):
+		del bpy.types.Scene.cycles_xml
 
 # User Interface Drawing Code
 class RenderButtonsPanel():
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "render"
+	bl_space_type = 'PROPERTIES'
+	bl_region_type = 'WINDOW'
+	bl_context = "render"
 
-    @classmethod
-    def poll(self, context):
-        rd = context.scene.render
-        return rd.engine == 'CYCLES'
+	@classmethod
+	def poll(self, context):
+		rd = context.scene.render
+		return rd.engine == 'CYCLES'
 
 
 class PHYSICS_PT_fluid_export(RenderButtonsPanel, bpy.types.Panel):
-    bl_label = "Cycles XML Exporter"
+	bl_label = "Cycles XML Exporter"
 
-    def draw(self, context):
-        layout = self.layout
-        
-        cycles = context.scene.cycles_xml
-        
-        #layout.prop(cycles, "filepath")
-        layout.operator("export_mesh.cycles_xml")
+	def draw(self, context):
+		layout = self.layout
+		
+		cycles = context.scene.cycles_xml
+		
+		#layout.prop(cycles, "filepath")
+		layout.operator("export_mesh.cycles_xml")
 
 
 # Export Operator
 class ExportCyclesXML(bpy.types.Operator, ExportHelper):
-    """Export a scene to the Cycles Standalone XML format"""
-    bl_idname = "export_mesh.cycles_xml"
-    bl_label = "Export Cycles XML"
+	"""Export a scene to the Cycles Standalone XML format"""
+	bl_idname = "export_mesh.cycles_xml"
+	bl_label = "Export Cycles XML"
 
-    filename_ext = ".xml"
+	filename_ext = ".xml"
 
-    @classmethod
-    def poll(cls, context):
-        return (context.active_object is not None)
+	@classmethod
+	def poll(cls, context):
+		return (context.active_object is not None)
 
-    def execute(self, context):
-        filepath = bpy.path.ensure_ext(self.filepath, ".xml")
+	def execute(self, context):
+		filepath = bpy.path.ensure_ext(self.filepath, ".xml")
 
-        from . import export_cycles
+		from . import export_cycles
+		reload( export_cycles )
 
-        return export_cycles.export_cycles(
-            scene=context.scene,
-            fp=open(self.filepath, 'w'))
+		## bugfix: don't leave an open file handle
+		result = None
+		with open(self.filepath, 'w') as fp:
+			result = export_cycles.export_cycles( scene=context.scene, fp=fp )
 
+		if result == {'FINISHED'}:
+			self.report( {'INFO'}, 'Exported scene to {}'.format(self.filepath) )
+		else:
+			self.report( {'ERROR'}, 'Unable export scene to {} (please see console)'.format(self.filepath) )
+
+		return result
 
 
 def menu_func_export(self, context):
-    self.layout.operator(ExportCyclesXML.bl_idname, text="Cycles Standalone Renderer XML (.xml)")
+	self.layout.operator(ExportCyclesXML.bl_idname, text="Cycles Standalone Renderer XML (.xml)")
 
 
 def register():
-    bpy.utils.register_module(__name__)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+	bpy.utils.register_module(__name__)
+	bpy.types.INFO_MT_file_export.append(menu_func_export)
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+	bpy.utils.unregister_module(__name__)
+	bpy.types.INFO_MT_file_export.remove(menu_func_export)
 
 if __name__ == "__main__":
-    register()
+	register()
 
-
-bl_info = {
-    "name": "Cycles XML exporter",
-    "description": "Exports the scene to the standalone Cycles renderer's XML format (you only need this if you are using Cycles standalone.",
-    "author": "Fábio Santos, TODO who else?",
-    "version": (0, 1),
-    "blender": (2, 69, 0),
-    "location": "File > Import-Export",
-    "warning": "", # used for warning icon and text in addons panel
-    "wiki_url": "", # "http://wiki.blender.org/index.php/TODO
-    "category": "Import-Export"
-}
 
 
