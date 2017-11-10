@@ -374,7 +374,7 @@ def write_light(ob):
 		'SPOT':  'spot',
 	}
 
-	direction_vector = '{} {} {}'.format( *(ob.matrix_world * Vector([0,0,1])) )
+	direction_vector = '{} {} {}'.format( *(ob.matrix_world * Vector([0,0,-1])) )
 
 	return etree.Element('light', {
 		'co':  '{} {} {}'.format( *ob.location ),
