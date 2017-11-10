@@ -14,9 +14,14 @@ def export_cycles(fp, scene, inline_textures=False):
         'inline_textures': inline_textures
     }
 
+	## make sure to wrap with the proper root tag
+	fp.write('<cycles>\n')
+
     for node in gen_scene_nodes(scene):
         if node is not None:
             write(node, fp)
+
+	fp.write('</cycles>\n')
 
     return {'FINISHED'}
 
