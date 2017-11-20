@@ -364,23 +364,71 @@ def write_material( material, tag_name='shader'):
 
 
 def write_light(ob):
-	# TODO finish off extra light parameters by type
+	def FF( f ):
+		return '{}'.format( f )
+
+	def II( i ):
+		return '{}'.format( int(i) )
+
+	def BB( b ):
+		return '{}'.format( 1 if b else 0 )
+
+	## these customizations are taken from intern/cycles/blender/blender_object.cpp,
+	## BlenderSync::sync_light().
 
 	type_conversion = {
 		'SUN':   'distant',
 		'POINT': 'point',
-		'HEMI':  'background',  ## is that right?
+		'HEMI':  'distant',
 		'AREA':  'area',
 		'SPOT':  'spot',
 	}
 
-	direction_vector = '{} {} {}'.format( *(ob.matrix_world * Vector([0,0,-1])) )
+	cscene = bpy.context.scene.cycles
+	clamp  = ob.data.cycles
+	clvis  = ob.cycles_visibility
 
-	return etree.Element('light', {
-		'co':  '{} {} {}'.format( *ob.location ),
-		'type': type_conversion[ob.data.type],
-		'dir': direction_vector,
-	})
+	samples = clamp.samples
+	if cscene.use_square_samples:
+		samples = samples * samples
+
+	node = etree.Element(
+		'light', {
+			'co'              : '{} {} {}'.format( *ob.location ),
+			'type'            : type_conversion[ob.data.type],
+			'dir'             : '{} {} {}'.format( *(Vector([0,0,-1]) * ob.matrix_world) ),
+			'cast_shadow'     : BB( clamp.cast_shadow ),
+			'use_mis'         : BB( clamp.use_multiple_importance_sampling ),
+			'samples'         : FF( samples ),
+			'max_bounces'     : II( clamp.max_bounces ),
+			'use_diffuse'     : BB( clvis.diffuse ),
+			'use_glossy'      : BB( clvis.glossy ),
+			'use_transmission': BB( clvis.transmission ),
+			'use_scatter'     : BB( clvis.scatter ),
+		}
+	)
+
+	if ob.data.type in { 'POINT', 'SPOT', 'SUN' }:
+		node.set( 'size', FF(ob.data.shadow_soft_size) )
+
+	if ob.data.type == 'SPOT':
+		node.set( 'spot_angle', FF(ob.data.spot_size) )
+		node.set( 'spot_smooth', FF(ob.data.spot_blend) )
+
+	elif ob.data.type == 'HEMI':
+		## these seem to be an odd type of distant light
+		node.set( 'size', "0.0" )
+	
+	elif ob.data.type == 'AREA':
+		node.set( 'size', "1.0" )
+		node.set( 'axisu', '{} {} {}'.format(*(Vector([1,0,0]) * ob.matrix_world)) )
+		node.set( 'axisv', '{} {} {}'.format(*(Vector([0,1,0]) * ob.matrix_world)) )
+		node.set( 'sizeu', FF(ob.data.size) )
+		node.set( 'sizev', FF(ob.data.size_y if ob.data.shape == 'RECTANGLE' else ob.data.size) )
+		if clamp.is_portal:
+			node.set( 'is_portal', '1' )
+
+	return node
 
 
 def write_mesh(object, scene):
