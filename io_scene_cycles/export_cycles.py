@@ -405,6 +405,7 @@ def write_light(ob):
 			'use_glossy'      : BB( clvis.glossy ),
 			'use_transmission': BB( clvis.transmission ),
 			'use_scatter'     : BB( clvis.scatter ),
+			'light_linking'   : '0x00FFFFFF',
 		}
 	)
 
